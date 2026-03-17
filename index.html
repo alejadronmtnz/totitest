@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personality Test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .pt-wrap {
+      max-width: 620px;
+      width: 100%;
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e5e5e2;
+      padding: 2.5rem 2rem;
+    }
+
+    .pt-progress { height: 4px; background: #e5e5e2; border-radius: 2px; margin-bottom: 2rem; }
+    .pt-progress-bar { height: 100%; background: #1a1a1a; border-radius: 2px; transition: width 0.4s ease; }
+    .pt-step { font-size: 12px; color: #888; margin-bottom: 0.5rem; }
+    .pt-question { font-size: 20px; font-weight: 500; line-height: 1.4; margin-bottom: 2rem; }
+    .pt-options { display: flex; flex-direction: column; gap: 10px; }
+
+    .pt-option {
+      padding: 14px 18px;
+      border: 1px solid #e5e5e2;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 15px;
+      color: #555;
+      background: #fff;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+      text-align: left;
+    }
+    .pt-option:hover { border-color: #aaa; color: #1a1a1a; background: #fafaf9; }
+    .pt-option.selected { border-color: #1a1a1a; background: #f5f5f3; color: #1a1a1a; font-weight: 500; }
+
+    .pt-nav { display: flex; justify-content: space-between; margin-top: 2rem; }
+    .pt-btn { padding: 10px 24px; border: 1px solid #d0d0cc; border-radius: 8px; background: transparent; color: #1a1a1a; font-size: 14px; cursor: pointer; }
+    .pt-btn:hover { background: #f5f5f3; }
+    .pt-btn:disabled { opacity: 0.3; cursor: default; }
+    .pt-btn.primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .pt-btn.primary:hover { opacity: 0.85; }
+
+    .pt-results { display: none; }
+    .pt-results.visible { display: block; }
+    .pt-result-type { font-size: 13px; color: #888; margin-bottom: 0.25rem; }
+    .pt-result-title { font-size: 28px; font-weight: 600; margin-bottom: 0.75rem; }
+    .pt-result-desc { font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 2rem; }
+
+    .pt-traits { display: flex; flex-direction: column; gap: 14px; }
+    .pt-trait-row { display: flex; align-items: center; gap: 12px; }
+    .pt-trait-label { font-size: 13px; color: #888; width: 120px; flex-shrink: 0; }
+    .pt-trait-bar-bg { flex: 1; height: 6px; background: #e5e5e2; border-radius: 3px; }
+    .pt-trait-bar-fill { height: 100%; border-radius: 3px; background: #1a1a1a; transition: width 0.6s ease; }
+    .pt-trait-pct { font-size: 13px; color: #aaa; width: 36px; text-align: right; flex-shrink: 0; }
+    .pt-restart { margin-top: 2rem; }
+  </style>
+</head>
+<body>
+<div class="pt-wrap">
+  <div id="quiz-section">
+    <div class="pt-progress"><div class="pt-progress-bar" id="progress-bar" style="width:0%"></div></div>
+    <div class="pt-step" id="step-label"></div>
+    <div class="pt-question" id="question-text"></div>
+    <div class="pt-options" id="options-container"></div>
+    <div class="pt-nav">
+      <button class="pt-btn" id="btn-back" onclick="goBack()" disabled>← Back</button>
+      <button class="pt-btn primary" id="btn-next" onclick="goNext()" disabled>Next →</button>
+    </div>
+  </div>
+
+  <div class="pt-results" id="results-section">
+    <div class="pt-result-type">Papi ud es</div>
+    <div class="pt-result-title" id="result-type"></div>
+    <div class="pt-result-desc" id="result-desc"></div>
+    <div class="pt-traits" id="traits-container"></div>
+    <div class="pt-restart"><button class="pt-btn" onclick="restart()">← Retake test</button></div>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { text: "En el colegio normalmente...", trait: "Extrovertido", options: [{ label: "Hablo con muchas personas", score: 4 }, { label: "Hablo con 2 o 3 personas", score: 2 }, { label: "Solo estudio", score: 0 }] },
+  { text: "Cuando tomas una desicion normalmente...", trait: "Intuitivo", options: [{ label: "Pienso criticamente", score: 4 }, { label: "Hago lo que me diga mi corazon", score: 2 }, { label: "Lo que diga mi papirico uribe/mis idolos politicos papasitos ricos ", score: 0 }] },
+  { text: "Despues de una larga semana te gusta...", trait: "Extrovertido", options: [{ label: "Salir", score: 4 }, { label: "Pajearme y verme con mi novia", score: 2 }, { label: "Estudiar", score: 0 }] },
+  { text: "Cuando un amigo esta emputado tu...", trait: "Empatico", options: [{ label: "Le ayudo con lo que necesite", score: 4 }, { label: "papi yo no se pero le intento ayudar", score: 2 }, { label: "Le cuento mis ideas politicas", score: 0 }] },
+  { text: "Donde estudias normalmente...", trait: "Psicorrigidez", options: [{ label: "super organizado", score: 4 }, { label: "Medio funcional", score: 2 }, { label: "A la de dios", score: 0 }] },
+  { text: "Ud prefiere el trabajo...", trait: "Abierto", options: [{ label: "Creativo para yo armarme un tema nuevo", score: 4 }, { label: "Que me deje creatividad pero con muchass reglas", score: 2 }, { label: "Papi yo no se, a la de dios", score: 0 }] },
+  { text: "En un grupo tiendes a ...", trait: "Consiencia", options: [{ label: "Encargarme de todo", score: 4 }, { label: "Medio contribuir", score: 2 }, { label: "Me duermo pirobos que otros trabajen so gran malparidos triplepehijueputas", score: 0 }] },
+  { text: "Como te sientes haciendo cosas nuevas?", trait: "Abierto", options: [{ label: "Lo amo", score: 4 }, { label: "no me fascina pero bien", score: 2 }, { label: "gas pirobo", score: 0 }] },
+  { text: "Cuando entras en conflicto...", trait: "Empatico", options: [{ label: "Hablo con el parcero", score: 4 }, { label: "Le digo que madure", score: 2 }, { label: "Le pego otra barredora por marica", score: 0 }] },
+  { text: "Como es un plan de fin de semana perfecto para vos mi socio parcero....", trait: "Consiencia", options: [{ label: "Todo bien programado", score: 4 }, { label: "Ahi a medias no se como funciona", score: 2 }, { label: "no se mi so", score: 0 }] }
+];
+
+const traits = ["Extrovertido", "Intuitivo", "Empatico", "Abierto", "Consiencia", "Psicorrigidez"];
+const traitLabels = { Extrovertido: "Social", Intuitivo: "creo que inteligente o n ose", Empatico: "No facho", Abierto: "De mentalidad abierta", Consiencia: "consciente", Psicorrigidez: "psicorrigido" };
+
+const profiles = [
+  { name: "Totico barbado",  traits: { Extrovertido: 3, Intuitivo: 3 },       desc: "Social e intuitivo, con una barba frondosa y sexy que te da extra confianza." },
+  { name: "Toto regañado",  traits: { Extrovertido: 3, Empatico: 3 },                       desc: "te acaban de putear y te sentiste mal por tus ideas fachas, pero aun asi eres extrovertido." },
+  { name: "Chorizo locked in",  traits: { Psicorrigidez: 3, Intuitivo: 3 },                desc: "Locked in guevon que hay examenes" },
+  { name: "El caballo",   traits: { Empatico: 3, Consiencia: 2 },                  desc: "Horny y enamorado de la yegua." },
+  { name: "Chochi psicorrigido",   traits: { Abierto: 1, Extrovertido: 2, Psicorrigidez: 3 },                      desc: "Aka ricardo, mera bestia guevon no hace nada mas que ser psicorrigido." },
+  { name: "Totico ragebait", traits: { Intuitivo: 1, Consiencia: 1, Psicorrigidez: 3 },                desc: "Malparido ragebaitero, lo mas probable es que seas facho." },
+  { name: "Toti neutral (final epico)",       traits: { Abierto: 0, Empatico: 2, Consiencia: 2, Psicorrigidez: 3 },     desc: "GG" },
+];
+
+let current = 0;
+let answers = new Array(questions.length).fill(null);
+
+function render() {
+  const q = questions[current];
+  document.getElementById("step-label").textContent = `Question ${current + 1} of ${questions.length}`;
+  document.getElementById("question-text").textContent = q.text;
+  document.getElementById("progress-bar").style.width = `${(current / questions.length) * 100}%`;
+  const container = document.getElementById("options-container");
+  container.innerHTML = "";
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.className = "pt-option" + (answers[current] === i ? " selected" : "");
+    btn.textContent = opt.label;
+    btn.onclick = () => selectAnswer(i);
+    container.appendChild(btn);
+  });
+  document.getElementById("btn-back").disabled = current === 0;
+  const nextBtn = document.getElementById("btn-next");
+  nextBtn.disabled = answers[current] === null;
+  nextBtn.textContent = current === questions.length - 1 ? "See results →" : "Next →";
+}
+
+function selectAnswer(i) {
+  answers[current] = i;
+  document.querySelectorAll(".pt-option").forEach((el, idx) => el.classList.toggle("selected", idx === i));
+  document.getElementById("btn-next").disabled = false;
+}
+
+function goNext() {
+  if (current < questions.length - 1) { current++; render(); }
+  else showResults();
+}
+
+function goBack() {
+  if (current > 0) { current--; render(); }
+}
+
+function computeScores() {
+  const totals = {}, counts = {};
+  traits.forEach(t => { totals[t] = 0; counts[t] = 0; });
+  questions.forEach((q, i) => {
+    if (answers[i] !== null) { totals[q.trait] += q.options[answers[i]].score; counts[q.trait] += 4; }
+  });
+  const pcts = {};
+  traits.forEach(t => { pcts[t] = counts[t] ? Math.round((totals[t] / counts[t]) * 100) : 0; });
+  return pcts;
+}
+
+function matchProfile(pcts) {
+  let best = profiles[profiles.length - 1], bestScore = -1;
+  profiles.forEach(p => {
+    let score = 0;
+    Object.entries(p.traits).forEach(([t, min]) => { if (pcts[t] >= min * 25) score++; });
+    if (score > bestScore) { bestScore = score; best = p; }
+  });
+  return best;
+}
+
+function showResults() {
+  const pcts = computeScores();
+  const profile = matchProfile(pcts);
+  document.getElementById("quiz-section").style.display = "none";
+  document.getElementById("results-section").classList.add("visible");
+  document.getElementById("result-type").textContent = profile.name;
+  document.getElementById("result-desc").textContent = profile.desc;
+  document.getElementById("progress-bar").style.width = "100%";
+  const tc = document.getElementById("traits-container");
+  tc.innerHTML = "";
+  traits.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "pt-trait-row";
+    row.innerHTML = `<span class="pt-trait-label">${traitLabels[t]}</span><div class="pt-trait-bar-bg"><div class="pt-trait-bar-fill" style="width:0%" id="bar-${t}"></div></div><span class="pt-trait-pct">${pcts[t]}%</span>`;
+    tc.appendChild(row);
+  });
+  setTimeout(() => traits.forEach(t => { document.getElementById("bar-" + t).style.width = pcts[t] + "%"; }), 80);
+}
+
+function restart() {
+  current = 0;
+  answers = new Array(questions.length).fill(null);
+  document.getElementById("quiz-section").style.display = "block";
+  document.getElementById("results-section").classList.remove("visible");
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
